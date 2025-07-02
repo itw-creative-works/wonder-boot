@@ -1,14 +1,18 @@
 {
-  "TODO": "__module_domain, __module_name, __asset_file_name, __module_owner, __module_title, __module_class_name, __module_instance_name, __module_description, __module_feature",
-  "name": "__module_name",
+  "name": "wonder-boot",
   "version": "0.0.1",
-  "description": "__module_description",
+  "description": "Automatically restart a crashed node process or any CLI command with custom timeout and error levels.",
   "main": "./dist/index.js",
   "scripts": {
     "start": "node ./dist/index.js",
-    "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/ --recursive --timeout=10000",
+    "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/test.js --timeout=10000",
     "prepare": "node -e \"require('prepare-package')()\"",
     "prepare:watch": "nodemon -w ./src -e '*' --exec 'npm run prepare'"
+  },
+  "bin": {
+    "wonder-boot": "./bin/wonder-boot.js",
+    "wonderboot": "./bin/wonder-boot.js",
+    "wb": "./bin/wonder-boot.js"
   },
   "preparePackage": {
     "input": "./src",
@@ -29,18 +33,24 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/__module_owner/__module_name"
+    "url": "git+https://github.com/itw-creative-works/wonder-boot"
   },
   "keywords": [
-    "__module_name"
+    "process",
+    "manager",
+    "restart",
+    "forever",
+    "crash",
+    "monitor"
   ],
   "author": "ITW Creative Works",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/__module_owner/__module_name/issues"
+    "url": "https://github.com/itw-creative-works/wonder-boot/issues"
   },
-  "homepage": "https://__module_domain",
+  "homepage": "https://itwcreativeworks.com",
   "dependencies": {
+    "chalk": "^4.1.2",
     "itwcw-package-analytics": "^1.0.6"
   },
   "devDependencies": {

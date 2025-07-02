@@ -1,53 +1,117 @@
-(function (root, factory) {
-  // https://github.com/umdjs/umd/blob/master/templates/returnExports.js
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define([], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // Node. Does not work with strict CommonJS, but
-    // only CommonJS-like environments that support module.exports,
-    // like Node.
-    module.exports = factory();
-  } else {
-    // Browser globals (root is window)
-    root.returnExports = factory();
+const { spawn } = require('child_process');
+const path = require('path');
+const chalk = require('chalk');
+
+class ProcessManager {
+  constructor(options) {
+    this.command = options.process;
+    this.timeout = options.timeout || 1000;
+    this.trigger = options.trigger || 'all';
+    this.isRunning = false;
+    this.childProcess = null;
+    this.restartCount = 0;
+    this.triggers = this.parseTriggers(options.trigger);
   }
-}(typeof self !== 'undefined' ? self : this, function () {
 
-  var environment = (Object.prototype.toString.call(typeof process !== 'undefined' ? process : 0) === '[object process]') ? 'node' : 'browser';
+  log(message) {
+    const timestamp = new Date().toTimeString().split(' ')[0];
+    console.log(`[${chalk.gray(timestamp)}] ${chalk.cyan("'wonder-boot'")}: ${message}`);
+  }
 
-  var SOURCE = 'library';
-  var VERSION = '{version}';
+  logError(message) {
+    const timestamp = new Date().toTimeString().split(' ')[0];
+    console.error(`[${chalk.gray(timestamp)}] ${chalk.cyan("'wonder-boot'")}: ${chalk.red(message)}`);
+  }
 
-  function __module_title(options) {
-    var self = this;
+  parseTriggers(trigger) {
+    if (!trigger || trigger === 'all') {
+      return ['uncaughtException', 'unhandledRejection', 'SIGINT', 'SIGTERM', 'exit'];
+    }
 
-    self.options = options || {};
+    if (trigger === 'crash') {
+      return ['uncaughtException', 'unhandledRejection', 'SIGSEGV', 'SIGABRT'];
+    }
 
-    return self
-  };
+    if (typeof trigger === 'string') {
+      return trigger.split(',').map(level => level.trim());
+    }
 
-  __module_title.prototype.method = function (options) {
-    var self = this;
+    return ['all'];
+  }
 
-    options = options || {};
+  parseCommand() {
+    if (this.command.endsWith('.js') && !this.command.includes(' ')) {
+      return {
+        cmd: 'node',
+        args: [path.resolve(this.command)]
+      };
+    }
 
-    return new Promise(function(resolve, reject) {
+    const parts = this.command.split(' ');
+    return {
+      cmd: parts[0],
+      args: parts.slice(1)
+    };
+  }
 
+  shouldRestart(code, signal) {
+    if (code === 0) return false;
+
+    if (this.trigger === 'all') return true;
+
+    if (this.trigger === 'crash' && (code !== 0 || signal)) return true;
+
+    return false;
+  }
+
+  start() {
+    if (this.isRunning) return;
+
+    const { cmd, args } = this.parseCommand();
+
+    this.log(`Starting process: ${chalk.cyan(cmd + ' ' + args.join(' '))}`);
+
+    this.isRunning = true;
+    this.childProcess = spawn(cmd, args, {
+      stdio: 'inherit',
+      shell: true
+    });
+
+    this.childProcess.on('error', (error) => {
+      this.logError(`Process error: ${error.message}`);
+      this.handleExit(1, null);
+    });
+
+    this.childProcess.on('exit', (code, signal) => {
+      this.handleExit(code, signal);
     });
   }
 
-  // Register
-  if (environment === 'browser') {
-    try {
-      window.__module_title = __module_title;
-    } catch (e) {
+  handleExit(code, signal) {
+    this.isRunning = false;
+
+    this.log(`Process exited with code ${chalk.yellow(code)} and signal ${chalk.yellow(signal)}`);
+
+    if (this.shouldRestart(code, signal)) {
+      this.restartCount++;
+      this.log(`Restarting process in ${chalk.cyan(this.timeout + 'ms')}... (restart #${chalk.yellow(this.restartCount)})`);
+
+      setTimeout(() => {
+        this.start();
+      }, this.timeout);
+    } else {
+      this.log(chalk.green('Process exited cleanly, not restarting.'));
+      process.exit(code || 0);
     }
   }
 
-  // Just return a value to define the module export.
-  // This example returns an object, but the module
-  // can return a function as the exported value.
-  return __module_title; // Enable if using UMD
+  stop() {
+    if (this.childProcess) {
+      this.childProcess.kill('SIGTERM');
+      this.childProcess = null;
+      this.isRunning = false;
+    }
+  }
+}
 
-}));
+module.exports = ProcessManager;
