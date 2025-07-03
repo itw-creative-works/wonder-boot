@@ -33,11 +33,15 @@ class ProcessManager {
 
   parseTriggers(trigger) {
     if (!trigger || trigger === 'crash') {
-      return ['uncaughtException', 'unhandledRejection', 'SIGSEGV', 'SIGABRT'];
+      return ['crash'];
     }
 
     if (trigger === 'all') {
-      return ['uncaughtException', 'unhandledRejection', 'SIGINT', 'SIGTERM', 'exit'];
+      return ['all'];
+    }
+
+    if (trigger === 'error') {
+      return ['error'];
     }
 
     if (typeof trigger === 'string') {
@@ -65,10 +69,13 @@ class ProcessManager {
   shouldRestart(code, signal) {
     if (code === 0) return false;
 
-    if (this.trigger === 'all') return true;
+    if (this.trigger === 'all') {
+      // Restart on any non-zero exit (errors or crashes)
+      return true;
+    }
 
     if (this.trigger === 'crash') {
-      // Only restart on actual crashes: specific signals or very specific exit codes
+      // Only restart on actual crashes: specific signals or crash exit codes
       const crashSignals = ['SIGSEGV', 'SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGILL'];
       if (signal && crashSignals.includes(signal)) return true;
       
@@ -78,6 +85,28 @@ class ProcessManager {
       if (crashExitCodes.includes(code)) return true;
       
       return false;
+    }
+
+    if (this.trigger === 'error') {
+      // Only restart on error exit codes (not crashes or signals)
+      const crashExitCodes = [134, 139];
+      
+      // Don't restart if there's ANY signal (crash or otherwise)
+      if (signal) return false;
+      
+      // Don't restart on crash exit codes
+      if (crashExitCodes.includes(code)) return false;
+      
+      // Any other non-zero exit is an error
+      return code !== 0;
+    }
+
+    // Check for specific signals in custom trigger list
+    if (Array.isArray(this.triggers) && this.triggers.length > 0) {
+      if (signal && this.triggers.includes(signal)) return true;
+      
+      // Also check if the exit code matches a specific value in triggers
+      if (code && this.triggers.includes(String(code))) return true;
     }
 
     return false;

@@ -21,13 +21,14 @@
   <a href="https://itwcreativeworks.com">Site</a> | <a href="https://www.npmjs.com/package/wonder-boot">NPM Module</a> | <a href="https://github.com/itw-creative-works/wonder-boot">GitHub Repo</a>
   <br>
   <br>
-  <strong>wonder-boot</strong> is the official npm module of <a href="https://itwcreativeworks.com">Wonder Boot</a>, a free CLI utility that automatically restarts a crashed node process or any CLI command with custom timeout and error levels..
+  <strong>wonder-boot</strong> is the official npm module of <a href="https://itwcreativeworks.com">Wonder Boot</a>, a free CLI utility that automatically restarts crashed processes (not regular errors) with customizable timeout and trigger levels.
 </p>
 
 ## 🦄 Features
-* Automatically restart a crashed node process or any CLI command
-* Set restart timeout
-* Set error levels that trigger a restart
+* Automatically restart crashed processes only (default behavior)
+* Configurable restart triggers: `crash` (default), `all`, or custom signals
+* Customizable restart timeout
+* Distinguishes between crashes and regular errors
 
 ## 📦 Install Wonder Boot
 ### Install via npm
@@ -38,16 +39,65 @@ npm install wonder-boot -g
 
 ## ⚡️ Usage
 ```shell
-wonderboot --process="your-command-here" --timeout=5000 --trigger=crash
+# Basic usage (restarts on crashes only)
+wonderboot --process="your-command-here"
+
+# With custom timeout (milliseconds)
+wonderboot --process="node server.js" --timeout=5000
+
+# Restart on errors only (not crashes)
+wonderboot --process="npm start" --trigger="error"
+
+# Restart on all non-zero exits (errors AND crashes)
+wonderboot --process="npm run dev" --trigger="all"
+
+# Restart on specific signals only
+wonderboot --process="./app.js" --trigger="SIGTERM,SIGINT"
 ```
 
-## 📘 Using Wonder Boot
-After you have followed the install step, you can start using `wonder-boot` to enhance your project.
+## 📘 Command Line Options
 
-For a more in-depth documentation of this library and the Wonder Boot service, please visit the official Wonder Boot website.
+### `--process` (required)
+The command or process to run and monitor.
+- **Type**: String
+- **Default**: None (required)
+- **Examples**: 
+  - `--process="node server.js"`
+  - `--process="npm start"`
+  - `--process="python app.py"`
+
+### `--trigger`
+Defines when the process should be restarted.
+- **Type**: String
+- **Default**: `crash`
+- **Options**:
+  - `crash` - Restart only on actual crashes (SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL)
+  - `error` - Restart only on errors (non-zero exits that aren't crashes)
+  - `all` - Restart on any non-zero exit code
+  - Custom signals - Comma-separated list (e.g., `"SIGTERM,SIGINT"`)
+- **Examples**:
+  - `--trigger=crash` (default behavior)
+  - `--trigger=error` 
+  - `--trigger=all`
+  - `--trigger="SIGTERM,SIGINT,SIGHUP"`
+
+### `--timeout`
+Time to wait before restarting the process (in milliseconds).
+- **Type**: Number
+- **Default**: `1000` (1 second)
+- **Examples**:
+  - `--timeout=5000` (5 seconds)
+  - `--timeout=100` (100 milliseconds)
+  - `--timeout=30000` (30 seconds)
 
 ## 📝 What Can Wonder Boot do?
-Automatically restart a crashed node process or any CLI command with custom timeout and error levels.
+Wonder Boot monitors your processes and automatically restarts them when they crash. By default, it only restarts on actual crashes (segmentation faults, aborts, etc.), not on regular errors or exit codes. This ensures your critical processes stay running without restarting unnecessarily.
+
+### Trigger Options
+- **`crash` (default)**: Only restart on actual crashes (SIGSEGV, SIGABRT, SIGBUS, etc.)
+- **`error`**: Only restart on errors (non-zero exits that aren't crashes)
+- **`all`**: Restart on any non-zero exit code (errors OR crashes)
+- **Custom signals**: Specify exact signals to trigger restart (e.g., "SIGTERM,SIGINT")
 
 ## 🗨️ Final Words
 If you are still having difficulty, we would love for you to post

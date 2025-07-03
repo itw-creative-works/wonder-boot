@@ -54,16 +54,16 @@ Options:
   --timeout=<ms>          Restart delay in milliseconds (default: 1000)
   --trigger=<level>    Error level that triggers restart:
                           - crash: restart only on crashes (default)
+                          - error: restart only on errors (not crashes)
                           - all: restart on any non-zero exit
-                          - <comma-separated list>: specific error types
-                            (uncaughtException, unhandledRejection, SIGINT, etc.)
+                          - <comma-separated>: specific signals (SIGTERM,SIGINT,etc.)
   --help, -h              Show this help message
 
 Examples:
   wonder-boot --process="node server.js"
   wonder-boot --process="npm start" --timeout=5000
-  wonder-boot --process="./app.js" --trigger=crash
-  wonder-boot --process="node app.js" --trigger="uncaughtException,unhandledRejection"
+  wonder-boot --process="./app.js" --trigger=error
+  wonder-boot --process="node app.js" --trigger="SIGTERM,SIGINT"
 `);
 }
 

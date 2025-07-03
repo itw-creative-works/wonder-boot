@@ -33,13 +33,16 @@ describe(`${package.name}`, () => {
 
     it('should parse triggers correctly', () => {
       const manager1 = new ProcessManager({ process: 'node test.js', trigger: 'all' });
-      assert.deepEqual(manager1.triggers, ['uncaughtException', 'unhandledRejection', 'SIGINT', 'SIGTERM', 'exit']);
+      assert.deepEqual(manager1.triggers, ['all']);
 
       const manager2 = new ProcessManager({ process: 'node test.js', trigger: 'crash' });
-      assert.deepEqual(manager2.triggers, ['uncaughtException', 'unhandledRejection', 'SIGSEGV', 'SIGABRT']);
+      assert.deepEqual(manager2.triggers, ['crash']);
 
-      const manager3 = new ProcessManager({ process: 'node test.js', trigger: 'SIGINT,SIGTERM' });
-      assert.deepEqual(manager3.triggers, ['SIGINT', 'SIGTERM']);
+      const manager3 = new ProcessManager({ process: 'node test.js', trigger: 'error' });
+      assert.deepEqual(manager3.triggers, ['error']);
+
+      const manager4 = new ProcessManager({ process: 'node test.js', trigger: 'SIGINT,SIGTERM' });
+      assert.deepEqual(manager4.triggers, ['SIGINT', 'SIGTERM']);
     });
 
     it('should parse command correctly', () => {
@@ -67,6 +70,14 @@ describe(`${package.name}`, () => {
       assert.equal(manager2.shouldRestart(139, null), true); // SIGSEGV exit code should restart
       assert.equal(manager2.shouldRestart(null, 'SIGSEGV'), true);
       assert.equal(manager2.shouldRestart(null, 'SIGABRT'), true);
+
+      const manager3 = new ProcessManager({ process: 'node test.js', trigger: 'error' });
+      assert.equal(manager3.shouldRestart(0, null), false);
+      assert.equal(manager3.shouldRestart(1, null), true); // Regular exit code 1 SHOULD restart
+      assert.equal(manager3.shouldRestart(134, null), false); // SIGABRT exit code should NOT restart
+      assert.equal(manager3.shouldRestart(139, null), false); // SIGSEGV exit code should NOT restart
+      assert.equal(manager3.shouldRestart(null, 'SIGSEGV'), false);
+      assert.equal(manager3.shouldRestart(null, 'SIGTERM'), false);
     });
   });
 
@@ -216,6 +227,36 @@ describe(`${package.name}`, () => {
         assert(output.includes('Process exited cleanly, not restarting'));
         assert(!output.includes('Restarting process')); // Should NOT restart
         assert(!output.includes('Restart count')); // Should NOT have any restarts
+        done();
+      });
+    });
+
+    it('should restart failure.js with error trigger (exit code 1)', function(done) {
+      this.timeout(5000);
+      
+      const processPath = path.join(__dirname, 'processes', 'failure.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'error', maxRestarts: 2 });
+      
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('FAILURE: Process started'));
+        assert(output.includes('FAILURE: Exiting with error code 1'));
+        assert(output.includes('Process exited with code 1'));
+        assert(output.includes('Restarting process'));
+        assert(output.includes('Restart count: 1'));
+        assert(output.includes('Restart count: 2'));
+        assert(output.includes('Max restarts reached'));
         done();
       });
     });
