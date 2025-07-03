@@ -13,14 +13,22 @@ class ProcessManager {
     this.triggers = this.parseTriggers(options.trigger);
   }
 
-  log(message) {
+  _formatMessage(message, color = null) {
     const timestamp = new Date().toTimeString().split(' ')[0];
-    console.log(`[${chalk.gray(timestamp)}] ${chalk.cyan("'wonder-boot'")}: ${message}`);
+    const coloredMessage = color ? chalk[color](message) : message;
+    return `${chalk.gray('[')}${chalk.magenta(timestamp)}${chalk.gray(']')} ${chalk.cyan("'wonder-boot'")}: ${coloredMessage}`;
+  }
+
+  log(message) {
+    console.log(this._formatMessage(message));
+  }
+
+  logWarn(message) {
+    console.warn(this._formatMessage(message, 'yellow'));
   }
 
   logError(message) {
-    const timestamp = new Date().toTimeString().split(' ')[0];
-    console.error(`[${chalk.gray(timestamp)}] ${chalk.cyan("'wonder-boot'")}: ${chalk.red(message)}`);
+    console.error(this._formatMessage(message, 'red'));
   }
 
   parseTriggers(trigger) {

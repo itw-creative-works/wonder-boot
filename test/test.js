@@ -21,7 +21,7 @@ describe(`${package.name}`, () => {
   const ProcessManager = require('../dist/index.js');
 
   describe('ProcessManager', () => {
-
+    
     it('should instantiate with default options', () => {
       const manager = new ProcessManager({ process: 'node test.js' });
       assert.equal(manager.command, 'node test.js');
@@ -65,58 +65,168 @@ describe(`${package.name}`, () => {
       assert.equal(manager2.shouldRestart(1, null), true);
       assert.equal(manager2.shouldRestart(null, 'SIGSEGV'), true);
     });
-
-    it('should start the process correctly', (done) => {
-      const manager = new ProcessManager({ process: 'node -e "console.log(\'Hello World\'); process.exit(1);"', timeout: 1000 });
-      manager.start();
-
-      setTimeout(() => {
-        assert.equal(manager.isRunning, true);
-        assert.equal(manager.restartCount, 1);
-        done();
-      }, 1500);
-    });
-
   });
 
-  // describe('CLI Binary', () => {
-  //   const binPath = path.join(__dirname, '..', 'bin', 'wonder-boot.js');
+  describe('Process Tests with Wrapper', () => {
+    const wrapperPath = path.join(__dirname, 'processes', '_wrapper.js');
+    
+    it('should NOT restart success.js (exit code 0)', function(done) {
+      this.timeout(5000);
+      
+      const processPath = path.join(__dirname, 'processes', 'success.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'all', maxRestarts: 2 });
+      
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('SUCCESS: Process started'));
+        assert(output.includes('SUCCESS: Exiting cleanly'));
+        assert(output.includes('Process exited with code 0'));
+        assert(output.includes('Process exited cleanly, not restarting'));
+        assert(!output.includes('Restart count: 1')); // Should NOT restart
+        done();
+      });
+    });
 
-  //   it('should show help when --help is passed', function(done) {
-  //     this.timeout(5000);
+    it('should restart failure.js (exit code 1)', function(done) {
+      this.timeout(5000);
+      
+      const processPath = path.join(__dirname, 'processes', 'failure.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'all', maxRestarts: 2 });
+      
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('FAILURE: Process started'));
+        assert(output.includes('FAILURE: Exiting with error code 1'));
+        assert(output.includes('Process exited with code 1'));
+        assert(output.includes('Restarting process'));
+        assert(output.includes('Restart count: 1'));
+        assert(output.includes('Restart count: 2'));
+        assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
 
-  //     const child = spawn('node', [binPath, '--help']);
-  //     let output = '';
+    it('should restart crash-immediate.js (uncaught exception)', function(done) {
+      this.timeout(5000);
+      
+      const processPath = path.join(__dirname, 'processes', 'crash-immediate.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'crash', maxRestarts: 2 });
+      
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('CRASH-IMMEDIATE: Process started'));
+        assert(output.includes('CRASH-IMMEDIATE: Throwing error immediately'));
+        assert(output.includes('Error: Immediate crash'));
+        assert(output.includes('Restarting process'));
+        assert(output.includes('Restart count: 1'));
+        assert(output.includes('Restart count: 2'));
+        assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
 
-  //     child.stdout.on('data', (data) => {
-  //       output += data.toString();
-  //     });
+    it('should restart crash-delayed.js (uncaught exception after delay)', function(done) {
+      this.timeout(5000);
+      
+      const processPath = path.join(__dirname, 'processes', 'crash-delayed.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'crash', maxRestarts: 2 });
+      
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('CRASH-DELAYED: Process started'));
+        assert(output.includes('CRASH-DELAYED: Throwing error after delay'));
+        assert(output.includes('Error: Delayed crash'));
+        assert(output.includes('Restarting process'));
+        assert(output.includes('Restart count: 1'));
+        assert(output.includes('Restart count: 2'));
+        assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
+  });
 
-  //     child.on('exit', (code) => {
-  //       assert.equal(code, 0);
-  //       assert(output.includes('wonder-boot - A simple process manager'));
-  //       assert(output.includes('--process='));
-  //       assert(output.includes('--timeout='));
-  //       assert(output.includes('--trigger='));
-  //       done();
-  //     });
-  //   });
+  describe('CLI Binary', () => {
+    const binPath = path.join(__dirname, '..', 'bin', 'wonder-boot.js');
 
-  //   it('should error when no process is provided', function(done) {
-  //     this.timeout(5000);
+    it('should show help when --help is passed', function(done) {
+      this.timeout(5000);
+      
+      const child = spawn('node', [binPath, '--help']);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('wonder-boot') && output.includes('A simple process manager'));
+        assert(output.includes('--process='));
+        assert(output.includes('--timeout='));
+        assert(output.includes('--trigger='));
+        done();
+      });
+    });
 
-  //     const child = spawn('node', [binPath]);
-  //     let output = '';
-
-  //     child.stderr.on('data', (data) => {
-  //       output += data.toString();
-  //     });
-
-  //     child.on('exit', (code) => {
-  //       assert.equal(code, 1);
-  //       assert(output.includes('--process parameter is required'));
-  //       done();
-  //     });
-  //   });
-  // });
+    it('should error when no process is provided', function(done) {
+      this.timeout(5000);
+      
+      const child = spawn('node', [binPath]);
+      let output = '';
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 1);
+        assert(output.includes('--process parameter is required'));
+        done();
+      });
+    });
+  });
 });

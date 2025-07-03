@@ -1,6 +1,6 @@
 {
   "name": "wonder-boot",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Automatically restart a crashed node process or any CLI command with custom timeout and error levels.",
   "main": "./dist/index.js",
   "scripts": {
