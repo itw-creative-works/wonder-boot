@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://itwcreativeworks.com">
-    <img src="https://cdn.itwcreativeworks.com/assets/itwcreativeworks/images/logo/itwcreativeworks-brandmark-black-x.svg" width="100px">
+    <img src="https://cdn.itwcreativeworks.com/assets/itw-creative-works/images/logo/itw-creative-works-brandmark-black-x.svg" width="100px">
   </a>
 </p>
 
@@ -61,7 +61,7 @@ wonderboot --process="./app.js" --trigger="SIGTERM,SIGINT"
 The command or process to run and monitor.
 - **Type**: String
 - **Default**: None (required)
-- **Examples**: 
+- **Examples**:
   - `--process="node server.js"`
   - `--process="npm start"`
   - `--process="python app.py"`
@@ -77,7 +77,7 @@ Defines when the process should be restarted.
   - Custom signals - Comma-separated list (e.g., `"SIGTERM,SIGINT"`)
 - **Examples**:
   - `--trigger=crash` (default behavior)
-  - `--trigger=error` 
+  - `--trigger=error`
   - `--trigger=all`
   - `--trigger="SIGTERM,SIGINT,SIGHUP"`
 

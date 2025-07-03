@@ -6,7 +6,7 @@ class ProcessManager {
   constructor(options) {
     this.command = options.process;
     this.timeout = options.timeout || 1000;
-    this.trigger = options.trigger || 'crash';
+    this.trigger = options.trigger || 'all';
     this.isRunning = false;
     this.childProcess = null;
     this.restartCount = 0;
@@ -32,7 +32,11 @@ class ProcessManager {
   }
 
   parseTriggers(trigger) {
-    if (!trigger || trigger === 'crash') {
+    if (!trigger || trigger === 'all') {
+      return ['all'];
+    }
+
+    if (trigger === 'crash') {
       return ['crash'];
     }
 
@@ -78,25 +82,25 @@ class ProcessManager {
       // Only restart on actual crashes: specific signals or crash exit codes
       const crashSignals = ['SIGSEGV', 'SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGILL'];
       if (signal && crashSignals.includes(signal)) return true;
-      
+
       // Exit codes that typically indicate crashes (segfault, abort, etc)
       // Node.js uses 134 for SIGABRT, 139 for SIGSEGV
       const crashExitCodes = [134, 139];
       if (crashExitCodes.includes(code)) return true;
-      
+
       return false;
     }
 
     if (this.trigger === 'error') {
       // Only restart on error exit codes (not crashes or signals)
       const crashExitCodes = [134, 139];
-      
+
       // Don't restart if there's ANY signal (crash or otherwise)
       if (signal) return false;
-      
+
       // Don't restart on crash exit codes
       if (crashExitCodes.includes(code)) return false;
-      
+
       // Any other non-zero exit is an error
       return code !== 0;
     }
@@ -104,7 +108,7 @@ class ProcessManager {
     // Check for specific signals in custom trigger list
     if (Array.isArray(this.triggers) && this.triggers.length > 0) {
       if (signal && this.triggers.includes(signal)) return true;
-      
+
       // Also check if the exit code matches a specific value in triggers
       if (code && this.triggers.includes(String(code))) return true;
     }
@@ -118,6 +122,9 @@ class ProcessManager {
     const { cmd, args } = this.parseCommand();
 
     this.log(`Starting process: ${chalk.cyan(cmd + ' ' + args.join(' '))}`);
+
+    // Log options
+    this.log(`Options: trigger=${chalk.cyan(this.trigger)}, timeout=${chalk.cyan(this.timeout + 'ms')}`);
 
     this.isRunning = true;
     this.childProcess = spawn(cmd, args, {

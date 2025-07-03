@@ -1,11 +1,17 @@
 {
   "name": "wonder-boot",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Automatically restart a crashed node process or any CLI command with custom timeout and error levels.",
   "main": "./dist/index.js",
   "scripts": {
     "start": "node ./dist/index.js",
     "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/test.js --timeout=10000",
+    "dev:error:all": "npm run prepare && ./bin/wonder-boot.js --process='node ./test/processes/error-delayed.js' --trigger='all'",
+    "dev:error:crash": "npm run prepare && ./bin/wonder-boot.js --process='node ./test/processes/error-delayed.js' --trigger='crash'",
+    "dev:error:error": "npm run prepare && ./bin/wonder-boot.js --process='node ./test/processes/error-delayed.js' --trigger='error'",
+    "dev:exit:all": "npm run prepare && ./bin/wonder-boot.js --process='node ./test/processes/exit-failure.js' --trigger='all'",
+    "dev:exit:crash": "npm run prepare && ./bin/wonder-boot.js --process='node ./test/processes/exit-failure.js' --trigger='crash'",
+    "dev:exit:error": "npm run prepare && ./bin/wonder-boot.js --process='node ./test/processes/exit-failure.js' --trigger='error'",
     "prepare": "node -e \"require('prepare-package')()\"",
     "prepare:watch": "nodemon -w ./src -e '*' --exec 'npm run prepare'"
   },
