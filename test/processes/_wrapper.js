@@ -11,7 +11,7 @@ const options = JSON.parse(args[1] || '{}');
 const manager = new ProcessManager({
   process: processPath,
   timeout: options.timeout || 1000,
-  trigger: options.trigger || 'all'
+  trigger: options.trigger || 'crash'
 });
 
 // Track restart count for testing

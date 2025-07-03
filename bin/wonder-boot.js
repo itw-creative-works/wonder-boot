@@ -53,8 +53,8 @@ Options:
   --process=<command>      The process or command to run (required)
   --timeout=<ms>          Restart delay in milliseconds (default: 1000)
   --trigger=<level>    Error level that triggers restart:
-                          - all: restart on any non-zero exit (default)
-                          - crash: restart only on crashes
+                          - crash: restart only on crashes (default)
+                          - all: restart on any non-zero exit
                           - <comma-separated list>: specific error types
                             (uncaughtException, unhandledRejection, SIGINT, etc.)
   --help, -h              Show this help message

@@ -6,7 +6,7 @@ class ProcessManager {
   constructor(options) {
     this.command = options.process;
     this.timeout = options.timeout || 1000;
-    this.trigger = options.trigger || 'all';
+    this.trigger = options.trigger || 'crash';
     this.isRunning = false;
     this.childProcess = null;
     this.restartCount = 0;
@@ -32,19 +32,19 @@ class ProcessManager {
   }
 
   parseTriggers(trigger) {
-    if (!trigger || trigger === 'all') {
-      return ['uncaughtException', 'unhandledRejection', 'SIGINT', 'SIGTERM', 'exit'];
+    if (!trigger || trigger === 'crash') {
+      return ['uncaughtException', 'unhandledRejection', 'SIGSEGV', 'SIGABRT'];
     }
 
-    if (trigger === 'crash') {
-      return ['uncaughtException', 'unhandledRejection', 'SIGSEGV', 'SIGABRT'];
+    if (trigger === 'all') {
+      return ['uncaughtException', 'unhandledRejection', 'SIGINT', 'SIGTERM', 'exit'];
     }
 
     if (typeof trigger === 'string') {
       return trigger.split(',').map(level => level.trim());
     }
 
-    return ['all'];
+    return ['crash'];
   }
 
   parseCommand() {
@@ -67,7 +67,18 @@ class ProcessManager {
 
     if (this.trigger === 'all') return true;
 
-    if (this.trigger === 'crash' && (code !== 0 || signal)) return true;
+    if (this.trigger === 'crash') {
+      // Only restart on actual crashes: specific signals or very specific exit codes
+      const crashSignals = ['SIGSEGV', 'SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGILL'];
+      if (signal && crashSignals.includes(signal)) return true;
+      
+      // Exit codes that typically indicate crashes (segfault, abort, etc)
+      // Node.js uses 134 for SIGABRT, 139 for SIGSEGV
+      const crashExitCodes = [134, 139];
+      if (crashExitCodes.includes(code)) return true;
+      
+      return false;
+    }
 
     return false;
   }

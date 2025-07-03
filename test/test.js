@@ -26,7 +26,7 @@ describe(`${package.name}`, () => {
       const manager = new ProcessManager({ process: 'node test.js' });
       assert.equal(manager.command, 'node test.js');
       assert.equal(manager.timeout, 1000);
-      assert.equal(manager.trigger, 'all');
+      assert.equal(manager.trigger, 'crash');
       assert.equal(manager.isRunning, false);
       assert.equal(manager.restartCount, 0);
     });
@@ -62,8 +62,11 @@ describe(`${package.name}`, () => {
 
       const manager2 = new ProcessManager({ process: 'node test.js', trigger: 'crash' });
       assert.equal(manager2.shouldRestart(0, null), false);
-      assert.equal(manager2.shouldRestart(1, null), true);
+      assert.equal(manager2.shouldRestart(1, null), false); // Regular exit code 1 should NOT restart
+      assert.equal(manager2.shouldRestart(134, null), true); // SIGABRT exit code should restart
+      assert.equal(manager2.shouldRestart(139, null), true); // SIGSEGV exit code should restart
       assert.equal(manager2.shouldRestart(null, 'SIGSEGV'), true);
+      assert.equal(manager2.shouldRestart(null, 'SIGABRT'), true);
     });
   });
 
@@ -132,7 +135,7 @@ describe(`${package.name}`, () => {
       this.timeout(5000);
       
       const processPath = path.join(__dirname, 'processes', 'crash-immediate.js');
-      const options = JSON.stringify({ timeout: 200, trigger: 'crash', maxRestarts: 2 });
+      const options = JSON.stringify({ timeout: 200, trigger: 'all', maxRestarts: 2 });
       
       const child = spawn('node', [wrapperPath, processPath, options]);
       let output = '';
@@ -162,7 +165,7 @@ describe(`${package.name}`, () => {
       this.timeout(5000);
       
       const processPath = path.join(__dirname, 'processes', 'crash-delayed.js');
-      const options = JSON.stringify({ timeout: 200, trigger: 'crash', maxRestarts: 2 });
+      const options = JSON.stringify({ timeout: 200, trigger: 'all', maxRestarts: 2 });
       
       const child = spawn('node', [wrapperPath, processPath, options]);
       let output = '';
@@ -184,6 +187,35 @@ describe(`${package.name}`, () => {
         assert(output.includes('Restart count: 1'));
         assert(output.includes('Restart count: 2'));
         assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
+
+    it('should NOT restart failure.js with crash trigger (exit code 1)', function(done) {
+      this.timeout(5000);
+      
+      const processPath = path.join(__dirname, 'processes', 'failure.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'crash', maxRestarts: 2 });
+      
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('exit', (code) => {
+        assert.equal(code, 1); // Should exit with the process exit code
+        assert(output.includes('FAILURE: Process started'));
+        assert(output.includes('FAILURE: Exiting with error code 1'));
+        assert(output.includes('Process exited with code 1'));
+        assert(output.includes('Process exited cleanly, not restarting'));
+        assert(!output.includes('Restarting process')); // Should NOT restart
+        assert(!output.includes('Restart count')); // Should NOT have any restarts
         done();
       });
     });
