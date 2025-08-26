@@ -56,14 +56,30 @@ class ProcessManager {
   }
 
   parseCommand() {
+    // Check if we should add unhandled rejections flag
+    const shouldAddFlag = this.trigger === 'all' || this.trigger === 'error';
+    
     if (this.command.endsWith('.js') && !this.command.includes(' ')) {
+      const args = shouldAddFlag 
+        ? ['--unhandled-rejections=strict', path.resolve(this.command)]
+        : [path.resolve(this.command)];
+      
       return {
         cmd: 'node',
-        args: [path.resolve(this.command)]
+        args: args
       };
     }
 
     const parts = this.command.split(' ');
+    
+    // If the command is 'node' and we should add the flag
+    if (parts[0] === 'node' && shouldAddFlag) {
+      return {
+        cmd: parts[0],
+        args: ['--unhandled-rejections=strict', ...parts.slice(1)]
+      };
+    }
+    
     return {
       cmd: parts[0],
       args: parts.slice(1)

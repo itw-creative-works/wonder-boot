@@ -46,15 +46,48 @@ describe(`${package.name}`, () => {
     });
 
     it('should parse command correctly', () => {
+      // Default trigger is 'all', so it will add the flag
       const manager1 = new ProcessManager({ process: 'test.js' });
       const parsed1 = manager1.parseCommand();
       assert.equal(parsed1.cmd, 'node');
-      assert.equal(parsed1.args[0], path.resolve('test.js'));
+      assert.equal(parsed1.args[0], '--unhandled-rejections=strict');
+      assert.equal(parsed1.args[1], path.resolve('test.js'));
 
       const manager2 = new ProcessManager({ process: 'npm run test' });
       const parsed2 = manager2.parseCommand();
       assert.equal(parsed2.cmd, 'npm');
       assert.deepEqual(parsed2.args, ['run', 'test']);
+      
+      // Test with crash trigger (should not add flag)
+      const manager3 = new ProcessManager({ process: 'test.js', trigger: 'crash' });
+      const parsed3 = manager3.parseCommand();
+      assert.equal(parsed3.cmd, 'node');
+      assert.equal(parsed3.args[0], path.resolve('test.js'));
+    });
+
+    it('should add --unhandled-rejections=strict flag for error and all triggers', () => {
+      const manager1 = new ProcessManager({ process: 'test.js', trigger: 'all' });
+      const parsed1 = manager1.parseCommand();
+      assert.equal(parsed1.cmd, 'node');
+      assert.equal(parsed1.args[0], '--unhandled-rejections=strict');
+      assert.equal(parsed1.args[1], path.resolve('test.js'));
+
+      const manager2 = new ProcessManager({ process: 'test.js', trigger: 'error' });
+      const parsed2 = manager2.parseCommand();
+      assert.equal(parsed2.cmd, 'node');
+      assert.equal(parsed2.args[0], '--unhandled-rejections=strict');
+      
+      const manager3 = new ProcessManager({ process: 'test.js', trigger: 'crash' });
+      const parsed3 = manager3.parseCommand();
+      assert.equal(parsed3.cmd, 'node');
+      assert.equal(parsed3.args[0], path.resolve('test.js'));
+      assert.notEqual(parsed3.args[0], '--unhandled-rejections=strict');
+      
+      const manager4 = new ProcessManager({ process: 'node script.js', trigger: 'all' });
+      const parsed4 = manager4.parseCommand();
+      assert.equal(parsed4.cmd, 'node');
+      assert.equal(parsed4.args[0], '--unhandled-rejections=strict');
+      assert.equal(parsed4.args[1], 'script.js');
     });
 
     it('should determine restart conditions correctly', () => {
@@ -257,6 +290,98 @@ describe(`${package.name}`, () => {
         assert(output.includes('Restart count: 1'));
         assert(output.includes('Restart count: 2'));
         assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
+
+    it('should restart rejection-immediate.js with all trigger (unhandled rejection)', function(done) {
+      this.timeout(5000);
+
+      const processPath = path.join(__dirname, 'processes', 'rejection-immediate.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'all', maxRestarts: 2 });
+
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('REJECTION-IMMEDIATE: Process started'));
+        assert(output.includes('Error: Immediate unhandled rejection'));
+        assert(output.includes('Process exited with code 1')); // --unhandled-rejections=strict causes exit 1
+        assert(output.includes('Restarting process'));
+        assert(output.includes('Restart count: 1'));
+        assert(output.includes('Restart count: 2'));
+        assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
+
+    it('should restart rejection-dns.js with error trigger (DNS error)', function(done) {
+      this.timeout(5000);
+
+      const processPath = path.join(__dirname, 'processes', 'rejection-dns.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'error', maxRestarts: 2 });
+
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.on('exit', (code) => {
+        assert.equal(code, 0);
+        assert(output.includes('REJECTION-DNS: Process started'));
+        assert(output.includes('ENOTFOUND'));
+        assert(output.includes('Process exited with code 1')); // --unhandled-rejections=strict causes exit 1
+        assert(output.includes('Restarting process'));
+        assert(output.includes('Restart count: 1'));
+        assert(output.includes('Restart count: 2'));
+        assert(output.includes('Max restarts reached'));
+        done();
+      });
+    });
+
+    it('should NOT restart rejection-immediate.js with crash trigger (unhandled rejection)', function(done) {
+      this.timeout(5000);
+
+      const processPath = path.join(__dirname, 'processes', 'rejection-immediate.js');
+      const options = JSON.stringify({ timeout: 200, trigger: 'crash', maxRestarts: 2 });
+
+      const child = spawn('node', [wrapperPath, processPath, options]);
+      let output = '';
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.on('exit', (code) => {
+        // In Node.js 15+, unhandled rejections cause exit code 1 by default
+        // But with 'crash' trigger, it won't restart because code 1 is not considered a crash
+        const nodeVersion = parseInt(process.version.substring(1).split('.')[0]);
+        const expectedCode = nodeVersion >= 15 ? 1 : 0;
+        
+        assert.equal(code, expectedCode);
+        assert(output.includes('REJECTION-IMMEDIATE: Process started'));
+        assert(output.includes('Process exited with code 1')); // Process exits with error
+        assert(output.includes('Process exited cleanly, not restarting')); // Should NOT restart with crash trigger
+        assert(!output.includes('Restarting process')); // Should NOT restart
         done();
       });
     });
